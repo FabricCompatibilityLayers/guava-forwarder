@@ -1,3 +1,5 @@
+import org.gradle.api.artifacts.ExternalModuleDependency
+
 plugins {
     id("java")
     id("com.gradleup.shadow") version ("9.3.0")
@@ -69,6 +71,23 @@ guavaVersions.forEach { version ->
     }
 }
 
+// Standalone sourceSet for the coverageReport tool below: it needs `main` (GuavaForwarder)
+// and `test` (FakeMappingBuilder/FakeVisitorInfos, reused so the report exercises the
+// exact same dispatch path GuavaForwarderTest does) plus ASM to read Guava jars as raw
+// bytecode - none of which belongs on the shipped jar's classpath.
+sourceSets.create("coverageTool") {
+    compileClasspath += sourceSets.main.get().output + sourceSets.main.get().compileClasspath + sourceSets.test.get().output
+    // `test`'s own runtimeClasspath already carries a real Guava jar plus every version
+    // module's compiled output (see the testRuntimeOnly additions in the loop above) -
+    // GuavaStubRegistrar needs both to reflect over stub methods that reference real
+    // Guava types.
+    runtimeClasspath += sourceSets.test.get().runtimeClasspath + guavaModules
+}
+
+dependencies {
+    add("coverageToolImplementation", "org.ow2.asm:asm:9.7")
+}
+
 tasks.test {
     useJUnitPlatform()
 }
@@ -100,4 +119,44 @@ tasks.shadeDowngradedApi {
 
 tasks.build {
     dependsOn(tasks.shadeDowngradedApi)
+}
+
+// Resolved once at configuration time (same jars the per-version sourceSets already
+// pull in as compileOnly, so this hits the dependency cache) purely as data files for
+// ApiSnapshot to parse with ASM - not put on any classpath. Non-transitive since only
+// Guava's own class files matter for the API diff.
+val guavaJarsByVersion: Map<String, java.io.File> = guavaVersions.associateWith { version ->
+    val dependency = dependencies.create("com.google.guava:guava:$version") as ExternalModuleDependency
+    dependency.isTransitive = false
+    configurations.detachedConfiguration(dependency).resolve().single()
+}
+
+val coverageReportFile = layout.buildDirectory.file("reports/coverageReport/coverageReport.txt")
+
+tasks.register<JavaExec>("coverageReport") {
+    group = "verification"
+    description = "Diffs each pair of consecutive supported Guava jars' public API and reports which " +
+            "removed/changed members aren't yet covered by a registered mapping, visitor redirect, or stub."
+    classpath = sourceSets["coverageTool"].runtimeClasspath
+    mainClass.set("io.github.fabriccompatibilitylayers.guavaforwarder.coverage.CoverageReportMain")
+
+    val out = coverageReportFile.get().asFile
+    outputs.file(out)
+    args = listOf(out.absolutePath) + guavaVersions.flatMap { version -> listOf(version, guavaJarsByVersion.getValue(version).absolutePath) }
+
+    doFirst { out.parentFile.mkdirs() }
+}
+
+tasks.register<JavaExec>("coverageReport12To17") {
+    group = "verification"
+    description = "Diffs each pair of consecutive supported Guava jars' public API and reports which " +
+            "removed/changed members aren't yet covered by a registered mapping, visitor redirect, or stub."
+    classpath = sourceSets["coverageTool"].runtimeClasspath
+    mainClass.set("io.github.fabriccompatibilitylayers.guavaforwarder.coverage.CoverageReportMain")
+
+    val out = coverageReportFile.get().asFile
+    outputs.file(out)
+    args = listOf(out.absolutePath) + listOf("12.0.1", "17.0").flatMap { version -> listOf(version, guavaJarsByVersion.getValue(version).absolutePath) }
+
+    doFirst { out.parentFile.mkdirs() }
 }
