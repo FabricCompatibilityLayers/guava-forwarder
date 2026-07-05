@@ -44,6 +44,17 @@ fun guavaSourceSetId(version: String) = "g" + version.replace(".", "_")
 // from below - reusing one of them here would create a dependency cycle.
 val guavaModules: Configuration = configurations.create("guavaModules")
 
+// Resolvable classpath fed to downgradeJar's ASM pass, which needs a real Guava jar to
+// resolve supertypes/members of Guava types referenced by stub replacements (e.g.
+// HashFunction/HashCode in MessageDigestUtils) - otherwise it logs "Could not find
+// class" for each. Kept separate from guavaModules since that holds our own compiled
+// classes, not Guava itself.
+val downgradeJarClasspath: Configuration = configurations.create("downgradeJarClasspath")
+
+dependencies {
+    add("downgradeJarClasspath", "com.google.guava:guava:17.0")
+}
+
 guavaVersions.forEach { version ->
     val id = guavaSourceSetId(version)
     sourceSets.create(id) {
@@ -77,6 +88,10 @@ tasks.shadowJar {
     configurations.add(project.configurations.shadow)
     configurations.add(guavaModules)
     exclude("META-INF/**")
+}
+
+tasks.downgradeJar {
+    classpath += downgradeJarClasspath
 }
 
 tasks.shadeDowngradedApi {

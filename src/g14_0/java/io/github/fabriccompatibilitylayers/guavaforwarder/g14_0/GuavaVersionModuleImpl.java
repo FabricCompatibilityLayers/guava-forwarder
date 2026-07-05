@@ -8,13 +8,11 @@ import io.github.fabriccompatibilitylayers.modremappingapi.api.v2.VisitorInfos;
 public class GuavaVersionModuleImpl implements GuavaVersionModule {
     @Override
     public void registerMappings(MappingBuilder builder) {
-        // Moved in Guava 14.0
         builder.addMapping("com/google/common/collect/AbstractLinkedIterator", "com/google/common/collect/AbstractSequentialIterator");
     }
 
     @Override
     public void registerVisitors(VisitorInfos visitorInfos, GuavaVersion fromVersion) {
-        // Moved in Guava 14.0
         visitorInfos.registerMethodInvocation(
                 "com/google/common/base/Equivalences",
                 "equals",

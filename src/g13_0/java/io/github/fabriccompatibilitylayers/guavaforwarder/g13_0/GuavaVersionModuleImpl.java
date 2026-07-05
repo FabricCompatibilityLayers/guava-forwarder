@@ -10,8 +10,9 @@ import io.github.fabriccompatibilitylayers.modremappingapi.api.v2.VisitorInfos;
 public class GuavaVersionModuleImpl implements GuavaVersionModule {
     @Override
     public void registerVisitors(VisitorInfos visitorInfos, GuavaVersion fromVersion) {
-        // Removed in Guava 13.0, no straight replacement.
-        GuavaStubRegistrar.register(visitorInfos, fromVersion, I_Files.class);
-        GuavaStubRegistrar.register(visitorInfos, fromVersion, I_ByteStreams.class);
+        GuavaStubRegistrar.register(visitorInfos, fromVersion, new Class[]{
+                I_Files.class,
+                I_ByteStreams.class
+        });
     }
 }

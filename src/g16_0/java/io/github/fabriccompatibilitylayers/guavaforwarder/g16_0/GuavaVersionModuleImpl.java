@@ -8,7 +8,6 @@ import io.github.fabriccompatibilitylayers.modremappingapi.api.v2.VisitorInfos;
 public class GuavaVersionModuleImpl implements GuavaVersionModule {
     @Override
     public void registerMappings(MappingBuilder builder) {
-        // Moved in Guava 16.0
         builder.addMapping("com/google/common/hash/HashFunction")
                 .method("hashString", "hashUnencodedChars", "(Ljava/lang/CharSequence;)Lcom/google/common/hash/HashCode;");
         builder.addMapping("com/google/common/hash/Hasher")
@@ -21,7 +20,6 @@ public class GuavaVersionModuleImpl implements GuavaVersionModule {
 
     @Override
     public void registerVisitors(VisitorInfos visitorInfos, GuavaVersion fromVersion) {
-        // Moved in Guava 16.0
         visitorInfos.registerMethodInvocation(
                 "com/google/common/hash/HashCodes",
                 "fromBytes",
