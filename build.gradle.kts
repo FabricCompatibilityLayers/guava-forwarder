@@ -27,14 +27,15 @@ dependencies {
 
     // At real runtime Guava is provided by the host mod/game; simulate that here so
     // tests can reflectively load version modules whose stubs reference real Guava types.
-    testRuntimeOnly("com.google.guava:guava:17.0")
+    testRuntimeOnly("com.google.guava:guava:21.0")
 }
 
 // One sourceSet per supported Guava release. `main` contains the version-agnostic
 // dispatch logic (see GuavaForwarder); each version sourceSet contains only the fixes
 // needed for that specific release and is compiled against that exact Guava version.
 val guavaVersions = listOf(
-    "12.0.1", "13.0", "13.0.1", "14.0", "14.0.1", "15.0", "16.0", "16.0.1", "17.0"
+    "12.0.1", "13.0", "13.0.1", "14.0", "14.0.1", "15.0", "16.0", "16.0.1", "17.0",
+    "18.0", "19.0", "20.0", "21.0"
 )
 
 fun guavaSourceSetId(version: String) = "g" + version.replace(".", "_")
@@ -54,7 +55,7 @@ val guavaModules: Configuration = configurations.create("guavaModules")
 val downgradeJarClasspath: Configuration = configurations.create("downgradeJarClasspath")
 
 dependencies {
-    add("downgradeJarClasspath", "com.google.guava:guava:17.0")
+    add("downgradeJarClasspath", "com.google.guava:guava:21.0")
 }
 
 guavaVersions.forEach { version ->

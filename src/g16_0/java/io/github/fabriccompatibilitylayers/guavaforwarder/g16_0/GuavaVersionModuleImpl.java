@@ -19,7 +19,7 @@ public class GuavaVersionModuleImpl implements GuavaVersionModule {
     }
 
     @Override
-    public void registerVisitors(VisitorInfos visitorInfos, GuavaVersion fromVersion) {
+    public void registerVisitors(VisitorInfos visitorInfos, GuavaVersion fromVersion, GuavaVersion toVersion) {
         visitorInfos.registerMethodInvocation(
                 "com/google/common/hash/HashCodes",
                 "fromBytes",

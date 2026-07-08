@@ -13,7 +13,8 @@ public class GuavaForwarder {
      * {@code GuavaVersionModuleImpl}) for, oldest first.
      */
     private static final List<String> SUPPORTED_VERSIONS = List.of(
-            "12.0.1", "13.0", "13.0.1", "14.0", "14.0.1", "15.0", "16.0", "16.0.1", "17.0"
+            "12.0.1", "13.0", "13.0.1", "14.0", "14.0.1", "15.0", "16.0", "16.0.1", "17.0",
+            "18.0", "19.0", "20.0", "21.0"
     );
 
     public static void registerAdditionalMappings(MappingBuilder builder, String fromVersion, String toVersion) {
