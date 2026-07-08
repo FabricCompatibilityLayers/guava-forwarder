@@ -205,6 +205,15 @@ public final class CoverageReportMain {
         return (String) recordInstance.getClass().getMethod(accessor).invoke(recordInstance);
     }
 
+    /** Applies every known class rename to each "L&lt;owner&gt;;" type reference in a descriptor. */
+    private static String rewriteDescriptor(String descriptor, Map<String, String> classRenameTarget) {
+        String rewritten = descriptor;
+        for (Map.Entry<String, String> rename : classRenameTarget.entrySet()) {
+            rewritten = rewritten.replace("L" + rename.getKey() + ";", "L" + rename.getValue() + ";");
+        }
+        return rewritten;
+    }
+
     private static boolean isCovered(
             ApiSnapshot.Member member,
             PairRegistrations registrations,
@@ -212,8 +221,17 @@ public final class CoverageReportMain {
             Map<String, String> classRenameTarget
     ) {
         String renamedTo = classRenameTarget.get(member.owner());
-        if (renamedTo != null && toApi.hasMember(renamedTo, member.name(), member.descriptor())) {
-            return true;
+        if (renamedTo != null) {
+            // A class rename doesn't just cover instance-method call sites on the
+            // renamed class itself - any OTHER member whose descriptor mentions that
+            // class (most commonly its own methods returning "this", e.g. a fluent
+            // builder) gets that reference rewritten too by the real remapper, so the
+            // descriptor has to be rewritten the same way before comparing against the
+            // replacement class's real API.
+            String rewrittenDescriptor = rewriteDescriptor(member.descriptor(), classRenameTarget);
+            if (toApi.hasMember(renamedTo, member.name(), rewrittenDescriptor)) {
+                return true;
+            }
         }
         for (MethodRenameInfo rename : registrations.methodRenames()) {
             if (rename.owner().equals(member.owner())
