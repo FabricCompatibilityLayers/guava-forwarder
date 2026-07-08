@@ -29,6 +29,10 @@ public class GuavaForwarder {
         GuavaVersion from = GuavaVersion.parse(fromVersion);
         GuavaVersion to = GuavaVersion.parse(toVersion);
 
+        if (from.equals(to)) {
+            return;
+        }
+
         for (String version : SUPPORTED_VERSIONS) {
             GuavaVersion parsed = GuavaVersion.parse(version);
             if (parsed.isNewerThan(from) && !parsed.isNewerThan(to)) {

@@ -147,6 +147,7 @@ tasks.register<JavaExec>("coverageReport") {
     doFirst { out.parentFile.mkdirs() }
 }
 
+// 1.2.x-1.5.x Forge
 tasks.register<JavaExec>("coverageReport12To17") {
     group = "verification"
     description = "Diffs each pair of consecutive supported Guava jars' public API and reports which " +
@@ -157,6 +158,36 @@ tasks.register<JavaExec>("coverageReport12To17") {
     val out = coverageReportFile.get().asFile
     outputs.file(out)
     args = listOf(out.absolutePath) + listOf("12.0.1", "17.0").flatMap { version -> listOf(version, guavaJarsByVersion.getValue(version).absolutePath) }
+
+    doFirst { out.parentFile.mkdirs() }
+}
+
+// Vanilla 1.6.x
+tasks.register<JavaExec>("coverageReport14To17") {
+    group = "verification"
+    description = "Diffs each pair of consecutive supported Guava jars' public API and reports which " +
+            "removed/changed members aren't yet covered by a registered mapping, visitor redirect, or stub."
+    classpath = sourceSets["coverageTool"].runtimeClasspath
+    mainClass.set("io.github.fabriccompatibilitylayers.guavaforwarder.coverage.CoverageReportMain")
+
+    val out = coverageReportFile.get().asFile
+    outputs.file(out)
+    args = listOf(out.absolutePath) + listOf("14.0", "17.0").flatMap { version -> listOf(version, guavaJarsByVersion.getValue(version).absolutePath) }
+
+    doFirst { out.parentFile.mkdirs() }
+}
+
+// Vanilla 1.7.x
+tasks.register<JavaExec>("coverageReport15To17") {
+    group = "verification"
+    description = "Diffs each pair of consecutive supported Guava jars' public API and reports which " +
+            "removed/changed members aren't yet covered by a registered mapping, visitor redirect, or stub."
+    classpath = sourceSets["coverageTool"].runtimeClasspath
+    mainClass.set("io.github.fabriccompatibilitylayers.guavaforwarder.coverage.CoverageReportMain")
+
+    val out = coverageReportFile.get().asFile
+    outputs.file(out)
+    args = listOf(out.absolutePath) + listOf("15.0", "17.0").flatMap { version -> listOf(version, guavaJarsByVersion.getValue(version).absolutePath) }
 
     doFirst { out.parentFile.mkdirs() }
 }
