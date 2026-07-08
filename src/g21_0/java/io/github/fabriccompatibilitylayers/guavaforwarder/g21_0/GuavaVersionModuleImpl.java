@@ -1,7 +1,9 @@
 package io.github.fabriccompatibilitylayers.guavaforwarder.g21_0;
 
+import io.github.fabriccompatibilitylayers.guavaforwarder.GuavaStubRegistrar;
 import io.github.fabriccompatibilitylayers.guavaforwarder.GuavaVersion;
 import io.github.fabriccompatibilitylayers.guavaforwarder.GuavaVersionModule;
+import io.github.fabriccompatibilitylayers.guavaforwarder.g21_0.stubs.C_ConcurrentHashMultiset;
 import io.github.fabriccompatibilitylayers.modremappingapi.api.v2.MappingBuilder;
 import io.github.fabriccompatibilitylayers.modremappingapi.api.v2.VisitorInfos;
 
@@ -17,6 +19,8 @@ public class GuavaVersionModuleImpl implements GuavaVersionModule {
 
     @Override
     public void registerVisitors(VisitorInfos visitorInfos, GuavaVersion fromVersion, GuavaVersion toVersion) {
+        GuavaStubRegistrar.register(visitorInfos, fromVersion, C_ConcurrentHashMultiset.class);
+
         // The class rename above doesn't cover these: Objects itself isn't renamed (its
         // other members, e.g. equal/hashCode, remain), so the toStringHelper factory
         // methods need their own redirect to their MoreObjects counterpart.
@@ -37,5 +41,29 @@ public class GuavaVersionModuleImpl implements GuavaVersionModule {
                     )
             );
         }
+
+        visitorInfos.registerMethodInvocation(
+                "com/google/common/base/Objects",
+                "firstNonNull",
+                "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+                VisitorInfos.classMember(
+                        "com/google/common/base/MoreObjects",
+                        "firstNonNull",
+                        "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+                        true
+                )
+        );
+
+        visitorInfos.registerMethodInvocation(
+                "com/google/common/util/concurrent/MoreExecutors",
+                "sameThreadExecutor",
+                "()Lcom/google/common/util/concurrent/ListeningExecutorService;",
+                VisitorInfos.classMember(
+                        "com/google/common/util/concurrent/MoreExecutors",
+                        "newDirectExecutorService",
+                        "()Lcom/google/common/util/concurrent/ListeningExecutorService;",
+                        true
+                )
+        );
     }
 }

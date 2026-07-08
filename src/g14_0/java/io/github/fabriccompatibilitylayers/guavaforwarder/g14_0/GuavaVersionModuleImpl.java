@@ -1,5 +1,6 @@
 package io.github.fabriccompatibilitylayers.guavaforwarder.g14_0;
 
+import io.github.fabriccompatibilitylayers.guavaforwarder.GuavaStubRegistrar;
 import io.github.fabriccompatibilitylayers.guavaforwarder.GuavaVersion;
 import io.github.fabriccompatibilitylayers.guavaforwarder.GuavaVersionModule;
 import io.github.fabriccompatibilitylayers.modremappingapi.api.v2.MappingBuilder;
@@ -12,7 +13,7 @@ public class GuavaVersionModuleImpl implements GuavaVersionModule {
         // AsynchronousComputationException was just a body-less subclass of ComputationException
         // with the same (Throwable) constructor - removed outright rather than renamed, but a
         // straight class rename to its still-present superclass is behaviorally identical.
-//        builder.addMapping("com/google/common/collect/AsynchronousComputationException", "com/google/common/collect/ComputationException");
+        builder.addMapping("com/google/common/collect/AsynchronousComputationException", "com/google/common/collect/ComputationException");
         builder.addMapping("com/google/common/collect/Iterators")
                 .method("skip", "advance", "(Ljava/util/Iterator;I)I");
     }
