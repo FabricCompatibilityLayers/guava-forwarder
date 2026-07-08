@@ -26,6 +26,10 @@ public final class GuavaVersion implements Comparable<GuavaVersion> {
         return compareTo(other) >= 0;
     }
 
+    public boolean isOlderThan(GuavaVersion other) {
+        return compareTo(other) < 0;
+    }
+
     @Override
     public int compareTo(GuavaVersion other) {
         for (int i = 0; i < parts.length; i++) {

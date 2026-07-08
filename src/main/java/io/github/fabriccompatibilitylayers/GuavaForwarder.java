@@ -22,7 +22,8 @@ public class GuavaForwarder {
 
     public static void registerVisitors(VisitorInfos visitorInfos, String fromVersion, String toVersion) {
         GuavaVersion from = GuavaVersion.parse(fromVersion);
-        forEachModuleInRange(fromVersion, toVersion, module -> module.registerVisitors(visitorInfos, from));
+        GuavaVersion to = GuavaVersion.parse(toVersion);
+        forEachModuleInRange(fromVersion, toVersion, module -> module.registerVisitors(visitorInfos, from, to));
     }
 
     private static void forEachModuleInRange(String fromVersion, String toVersion, java.util.function.Consumer<GuavaVersionModule> action) {

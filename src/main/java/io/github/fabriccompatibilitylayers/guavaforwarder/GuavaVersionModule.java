@@ -12,6 +12,6 @@ public interface GuavaVersionModule {
     default void registerMappings(MappingBuilder builder) {
     }
 
-    default void registerVisitors(VisitorInfos visitorInfos, GuavaVersion fromVersion) {
+    default void registerVisitors(VisitorInfos visitorInfos, GuavaVersion fromVersion, GuavaVersion toVersion) {
     }
 }
