@@ -16,6 +16,12 @@ public class GuavaVersionModuleImpl implements GuavaVersionModule {
                 .method("putString", "putUnencodedChars", "(Ljava/lang/CharSequence;)Lcom/google/common/hash/PrimitiveSink;");
         builder.addMapping("com/google/common/hash/Funnels")
                 .method("stringFunnel", "unencodedCharsFunnel", "()Lcom/google/common/hash/Funnel;");
+        // Same rename as Hasher#putString above, but the call site can also resolve
+        // directly against this concrete base class (not just the Hasher interface) -
+        // putUnencodedChars already exists here too, unlike the Beta-only breaks
+        // elsewhere in this version bump.
+        builder.addMapping("com/google/common/hash/AbstractStreamingHashFunction$AbstractStreamingHasher")
+                .method("putString", "putUnencodedChars", "(Ljava/lang/CharSequence;)Lcom/google/common/hash/Hasher;");
     }
 
     @Override
