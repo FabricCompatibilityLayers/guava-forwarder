@@ -31,7 +31,17 @@ final class ApiSnapshot {
     record Member(String owner, String name, String descriptor) {
     }
 
+    /** A class's resolvable (public/protected, non-constructor) members plus its hierarchy links. */
+    private record ClassInfo(String superName, List<String> interfaces, Set<String> resolvableMembers) {
+    }
+
+    /** The subset of each public class's {@code resolvableMembers} that excludes compiler-generated
+     * bridge/synthetic methods - i.e. the hand-written surface a version bump is checked against. */
     private final Map<String, Set<String>> methodsByClass = new HashMap<>();
+
+    /** Every class in the jar (public or not), so hierarchy walks can pass through package-private
+     * link classes too - keyed the same as {@link #methodsByClass}. */
+    private final Map<String, ClassInfo> classInfo = new HashMap<>();
 
     private ApiSnapshot() {
     }
@@ -58,11 +68,6 @@ final class ApiSnapshot {
         return methodsByClass.containsKey(internalName);
     }
 
-    boolean hasMember(String owner, String name, String descriptor) {
-        Set<String> members = methodsByClass.get(owner);
-        return members != null && members.contains(key(name, descriptor));
-    }
-
     /** Classes present here that no longer exist at all in {@code other}. */
     List<String> classesMissingFrom(ApiSnapshot other) {
         List<String> missing = new ArrayList<>();
@@ -79,10 +84,38 @@ final class ApiSnapshot {
     }
 
     /**
-     * Members that no longer resolve by the exact name+descriptor an old call site
-     * would reference - including members of classes that vanished entirely, since a
-     * per-method visitor redirect can still cover those individually (e.g. a whole
-     * class removed but each of its methods redirected to a new home).
+     * Members whose old call site - {@code owner}, {@code name}, {@code descriptor} - no longer
+     * resolves at all, checked the same way the JVM resolves {@code invokevirtual} (JVMS 5.4.3.3,
+     * simplified): first {@code owner} itself, then its superclass chain, then its superinterfaces
+     * (transitively, interleaved with the superclass walk rather than strictly after it - close
+     * enough for Guava's non-conflicting hierarchies). Bridge/synthetic methods count here even
+     * though they're excluded from {@link #methodsByClass}, since the JVM doesn't care about those
+     * flags when resolving a call site - a covariant-return override's auto-generated bridge is a
+     * perfectly valid target for an old call site compiled against the pre-covariant descriptor.
+     *
+     * <p>A class outside this jar (e.g. a JDK supertype) can't be inspected, so the walk simply
+     * stops there rather than guessing.
+     */
+    boolean resolvesMember(String owner, String name, String descriptor) {
+        return resolvesMember(owner, name, descriptor, new HashSet<>());
+    }
+
+    private boolean resolvesMember(String owner, String name, String descriptor, Set<String> visited) {
+        if (owner == null || !visited.add(owner)) return false;
+        ClassInfo info = classInfo.get(owner);
+        if (info == null) return false;
+        if (info.resolvableMembers().contains(key(name, descriptor))) return true;
+        if (resolvesMember(info.superName(), name, descriptor, visited)) return true;
+        for (String iface : info.interfaces()) {
+            if (resolvesMember(iface, name, descriptor, visited)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Members that no longer resolve from an old call site - see {@link #resolvesMember} - including
+     * members of classes that vanished entirely, since a per-method visitor redirect can still cover
+     * those individually (e.g. a whole class removed but each of its methods redirected to a new home).
      */
     List<Member> membersMissingFrom(ApiSnapshot other) {
         List<Member> missing = new ArrayList<>();
@@ -92,7 +125,7 @@ final class ApiSnapshot {
                 int split = key.indexOf(' ');
                 String name = key.substring(0, split);
                 String descriptor = key.substring(split + 1);
-                if (!other.hasMember(owner, name, descriptor)) {
+                if (!other.resolvesMember(owner, name, descriptor)) {
                     missing.add(new Member(owner, name, descriptor));
                 }
             }
@@ -118,6 +151,11 @@ final class ApiSnapshot {
             owner = name;
             publicClass = (access & Opcodes.ACC_PUBLIC) != 0;
             if (publicClass) methodsByClass.computeIfAbsent(owner, k -> new HashSet<>());
+            classInfo.put(owner, new ClassInfo(
+                    superName,
+                    interfaces == null ? List.of() : List.of(interfaces),
+                    new HashSet<>()
+            ));
         }
 
         @Override
@@ -125,7 +163,11 @@ final class ApiSnapshot {
             boolean visibleMember = (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PROTECTED)) != 0;
             boolean compilerGenerated = (access & (Opcodes.ACC_SYNTHETIC | Opcodes.ACC_BRIDGE)) != 0;
             boolean constructorLike = name.equals("<init>") || name.equals("<clinit>");
-            if (publicClass && visibleMember && !compilerGenerated && !constructorLike) {
+            if (constructorLike) return null;
+            if (visibleMember) {
+                classInfo.get(owner).resolvableMembers().add(key(name, descriptor));
+            }
+            if (publicClass && visibleMember && !compilerGenerated) {
                 methodsByClass.get(owner).add(key(name, descriptor));
             }
             return null;

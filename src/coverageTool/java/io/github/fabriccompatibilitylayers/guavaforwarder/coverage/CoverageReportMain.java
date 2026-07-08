@@ -229,7 +229,7 @@ public final class CoverageReportMain {
             // descriptor has to be rewritten the same way before comparing against the
             // replacement class's real API.
             String rewrittenDescriptor = rewriteDescriptor(member.descriptor(), classRenameTarget);
-            if (toApi.hasMember(renamedTo, member.name(), rewrittenDescriptor)) {
+            if (toApi.resolvesMember(renamedTo, member.name(), rewrittenDescriptor)) {
                 return true;
             }
         }
