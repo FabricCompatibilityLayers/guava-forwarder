@@ -11,7 +11,7 @@ class GuavaForwarderTest {
     void registersMappingsFromEveryVersionInRange() {
         FakeMappingBuilder builder = new FakeMappingBuilder();
 
-        GuavaForwarder.registerAdditionalMappings(builder, "12.0.1", "17.0");
+        GuavaForwarder.registerAdditionalMappings(builder, "12.0.1", "21.0");
 
         assertTrue(builder.classRenames.contains(
                 new FakeMappingBuilder.ClassRename(
@@ -26,13 +26,19 @@ class GuavaForwarderTest {
                         "(Ljava/lang/CharSequence;)Lcom/google/common/hash/HashCode;"
                 )
         ));
+        assertTrue(builder.classRenames.contains(
+                new FakeMappingBuilder.ClassRename(
+                        "com/google/common/base/Objects$ToStringHelper",
+                        "com/google/common/base/MoreObjects$ToStringHelper"
+                )
+        ));
     }
 
     @Test
     void registersVisitorsAndStubsFromEveryVersionInRange() {
         FakeVisitorInfos visitorInfos = new FakeVisitorInfos();
 
-        GuavaForwarder.registerVisitors(visitorInfos, "12.0.1", "17.0");
+        GuavaForwarder.registerVisitors(visitorInfos, "12.0.1", "21.0");
 
         assertTrue(visitorInfos.methodRedirects.stream().anyMatch(r ->
                 r.targetClass().equals("com/google/common/base/Equivalences")
@@ -49,6 +55,11 @@ class GuavaForwarderTest {
                         && r.targetMethod().equals("getDigest")
                         && r.replacementName().equals("getDigest")
         ));
+        assertTrue(visitorInfos.methodRedirects.stream().anyMatch(r ->
+                r.targetClass().equals("com/google/common/base/Objects")
+                        && r.targetMethod().equals("toStringHelper")
+                        && r.replacementOwner().equals("com/google/common/base/MoreObjects")
+        ));
     }
 
     @Test
@@ -61,6 +72,20 @@ class GuavaForwarderTest {
 
         assertTrue(visitorInfos.methodRedirects.stream().noneMatch(r ->
                 r.targetClass().equals("com/google/common/io/Files")
+        ));
+    }
+
+    @Test
+    void skipsInputSupplierStubOncePastRemovalIn20() {
+        FakeVisitorInfos visitorInfos = new FakeVisitorInfos();
+
+        // ByteStreams#getDigest's stub replacement declares a leading InputSupplier
+        // parameter (to match the original member's descriptor) - InputSupplier itself
+        // was removed in 20.0, so bridging past that point can never use this redirect.
+        GuavaForwarder.registerVisitors(visitorInfos, "12.0.1", "21.0");
+
+        assertTrue(visitorInfos.methodRedirects.stream().noneMatch(r ->
+                r.targetClass().equals("com/google/common/io/ByteStreams")
         ));
     }
 }
