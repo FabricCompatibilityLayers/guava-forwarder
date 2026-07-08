@@ -22,5 +22,17 @@ public class GuavaVersionModuleImpl implements GuavaVersionModule {
         if (toVersion.isOlderThan(INPUT_SUPPLIER_REMOVED_IN)) {
             GuavaStubRegistrar.register(visitorInfos, fromVersion, I_ByteStreams.class);
         }
+
+        visitorInfos.registerMethodInvocation(
+                "com/google/common/collect/Iterables",
+                "reverse",
+                "(Ljava/util/List;)Ljava/lang/Iterable;",
+                VisitorInfos.classMember(
+                        "com/google/common/collect/Lists",
+                        "reverse",
+                        "(Ljava/util/List;)Ljava/util/List;",
+                        true
+                )
+        );
     }
 }

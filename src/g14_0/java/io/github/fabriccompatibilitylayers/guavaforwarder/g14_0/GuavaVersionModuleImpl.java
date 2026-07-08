@@ -1,24 +1,40 @@
 package io.github.fabriccompatibilitylayers.guavaforwarder.g14_0;
 
+import io.github.fabriccompatibilitylayers.guavaforwarder.GuavaStubRegistrar;
 import io.github.fabriccompatibilitylayers.guavaforwarder.GuavaVersion;
 import io.github.fabriccompatibilitylayers.guavaforwarder.GuavaVersionModule;
+import io.github.fabriccompatibilitylayers.guavaforwarder.g14_0.stubs.C_GenericMapMaker;
+import io.github.fabriccompatibilitylayers.guavaforwarder.g14_0.stubs.C_MapMaker;
 import io.github.fabriccompatibilitylayers.modremappingapi.api.v2.MappingBuilder;
 import io.github.fabriccompatibilitylayers.modremappingapi.api.v2.VisitorInfos;
 
 public class GuavaVersionModuleImpl implements GuavaVersionModule {
+    private static final GuavaVersion GENERIC_MAP_MAKER_REMOVED_IN = GuavaVersion.parse("20.0");
+
     @Override
     public void registerMappings(MappingBuilder builder, GuavaVersion fromVersion, GuavaVersion toVersion) {
         builder.addMapping("com/google/common/collect/AbstractLinkedIterator", "com/google/common/collect/AbstractSequentialIterator");
         // AsynchronousComputationException was just a body-less subclass of ComputationException
         // with the same (Throwable) constructor - removed outright rather than renamed, but a
         // straight class rename to its still-present superclass is behaviorally identical.
-//        builder.addMapping("com/google/common/collect/AsynchronousComputationException", "com/google/common/collect/ComputationException");
+        builder.addMapping("com/google/common/collect/AsynchronousComputationException", "com/google/common/collect/ComputationException");
         builder.addMapping("com/google/common/collect/Iterators")
                 .method("skip", "advance", "(Ljava/util/Iterator;I)I");
     }
 
     @Override
     public void registerVisitors(VisitorInfos visitorInfos, GuavaVersion fromVersion, GuavaVersion toVersion) {
+        GuavaStubRegistrar.register(visitorInfos, fromVersion, C_MapMaker.class);
+
+        // C_GenericMapMaker#softKeys takes a leading GenericMapMaker parameter (to match
+        // the original member's descriptor) - GenericMapMaker itself was removed in Guava
+        // 20.0, so once the actual runtime Guava is that new, no mod bytecode could hold
+        // a GenericMapMaker instance to call this with anyway, and reflecting over the
+        // stub class would fail trying to resolve that removed type.
+        if (toVersion.isOlderThan(GENERIC_MAP_MAKER_REMOVED_IN)) {
+            GuavaStubRegistrar.register(visitorInfos, fromVersion, C_GenericMapMaker.class);
+        }
+
         visitorInfos.registerMethodInvocation(
                 "com/google/common/base/Equivalences",
                 "equals",
