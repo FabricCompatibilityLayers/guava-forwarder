@@ -10,7 +10,11 @@ public final class GuavaVersion implements Comparable<GuavaVersion> {
     }
 
     public static GuavaVersion parse(String version) {
-        String[] split = version.split("\\.");
+        // Guava 23.1+ tags releases with a "-jre"/"-android" flavor suffix (e.g.
+        // "23.1-jre") instead of a plain numeric version - strip it before splitting,
+        // since only the numeric portion carries ordering information.
+        String numeric = version.contains("-") ? version.substring(0, version.indexOf('-')) : version;
+        String[] split = numeric.split("\\.");
         int[] parts = new int[3];
         for (int i = 0; i < parts.length && i < split.length; i++) {
             parts[i] = Integer.parseInt(split[i]);

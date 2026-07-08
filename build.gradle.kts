@@ -27,18 +27,37 @@ dependencies {
 
     // At real runtime Guava is provided by the host mod/game; simulate that here so
     // tests can reflectively load version modules whose stubs reference real Guava types.
-    testRuntimeOnly("com.google.guava:guava:21.0")
+    testRuntimeOnly("com.google.guava:guava:24.1.1-jre")
 }
 
-// One sourceSet per supported Guava release. `main` contains the version-agnostic
-// dispatch logic (see GuavaForwarder); each version sourceSet contains only the fixes
-// needed for that specific release and is compiled against that exact Guava version.
-val guavaVersions = listOf(
-    "12.0.1", "13.0", "13.0.1", "14.0", "14.0.1", "15.0", "16.0", "16.0.1", "17.0",
-    "18.0", "19.0", "20.0", "21.0"
+// Every Guava release we support, oldest first, grouped into consecutive runs the
+// `coverageReport` task confirms have zero removed classes/members between them (i.e. no
+// public API break). `main` contains the version-agnostic dispatch logic (see
+// GuavaForwarder); each group gets exactly one sourceSet, containing only the fixes
+// needed to bridge into the group's oldest member, and is compiled against that oldest
+// version. This mirrors GuavaForwarder.SUPPORTED_VERSION_GROUPS - keep both in sync, and
+// re-run coverageReport before changing either when adding a new version.
+val guavaVersionGroups = listOf(
+    listOf("12.0.1"),
+    listOf("13.0", "13.0.1"),
+    listOf("14.0", "14.0.1"),
+    listOf("15.0"),
+    listOf("16.0", "16.0.1"),
+    listOf("17.0"),
+    listOf("18.0"),
+    listOf("19.0"),
+    listOf("20.0"),
+    listOf("21.0"),
+    listOf("22.0"),
+    listOf("23.0"),
+    listOf("23.1-jre"),
+    listOf("23.2-jre"),
+    listOf("23.3-jre", "23.4-jre", "23.5-jre", "23.6-jre", "23.6.1-jre"),
+    listOf("24.0-jre", "24.1-jre", "24.1.1-jre")
 )
+val guavaVersions = guavaVersionGroups.flatten()
 
-fun guavaSourceSetId(version: String) = "g" + version.replace(".", "_")
+fun guavaSourceSetId(version: String) = "g" + version.replace(".", "_").replace("-", "_")
 
 // Dedicated, standalone configuration (extends nothing) that collects every version
 // sourceSet's output for packaging. It's kept separate from `implementation`/
@@ -55,16 +74,20 @@ val guavaModules: Configuration = configurations.create("guavaModules")
 val downgradeJarClasspath: Configuration = configurations.create("downgradeJarClasspath")
 
 dependencies {
-    add("downgradeJarClasspath", "com.google.guava:guava:21.0")
+    add("downgradeJarClasspath", "com.google.guava:guava:24.1.1-jre")
 }
 
-guavaVersions.forEach { version ->
-    val id = guavaSourceSetId(version)
+guavaVersionGroups.forEach { group ->
+    // Compiled against the group's oldest member - since every version in the group is
+    // API-identical to it (that's what makes the group non-breaking), that's the most
+    // conservative common denominator for whatever the shared module needs to compile
+    // against.
+    val id = guavaSourceSetId(group.first())
     sourceSets.create(id) {
         compileClasspath += sourceSets.main.get().output + sourceSets.main.get().compileClasspath
     }
     dependencies {
-        add("${id}CompileOnly", "com.google.guava:guava:$version")
+        add("${id}CompileOnly", "com.google.guava:guava:${group.first()}")
         add("guavaModules", sourceSets[id].output.classesDirs)
         // `test` only sees `main` by default; add the output directly to its runtime
         // classpath so GuavaForwarderTest can reflectively load these classes.
