@@ -13,7 +13,7 @@ A consuming `ModRemapper` calls the two entrypoints in `GuavaForwarder`:
 
 ## Supported versions
 
-Guava `12.0.1` through `24.1.1-jre`.
+Guava `12.0.1` through `32.0.1-jre`.
 
 ## Building
 
