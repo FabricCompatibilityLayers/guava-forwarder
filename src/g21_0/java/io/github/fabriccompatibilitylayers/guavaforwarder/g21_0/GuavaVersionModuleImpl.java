@@ -7,7 +7,7 @@ import io.github.fabriccompatibilitylayers.modremappingapi.api.v2.VisitorInfos;
 
 public class GuavaVersionModuleImpl implements GuavaVersionModule {
     @Override
-    public void registerMappings(MappingBuilder builder) {
+    public void registerMappings(MappingBuilder builder, GuavaVersion fromVersion, GuavaVersion toVersion) {
         // Objects$ToStringHelper was removed outright in 21.0 - MoreObjects$ToStringHelper
         // (introduced in 18.0 as its replacement) has an identical add/addValue/
         // omitNullValues/toString method surface, so a straight class rename covers

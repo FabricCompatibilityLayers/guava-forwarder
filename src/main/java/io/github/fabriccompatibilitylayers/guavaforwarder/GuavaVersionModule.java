@@ -9,7 +9,7 @@ import io.github.fabriccompatibilitylayers.modremappingapi.api.v2.VisitorInfos;
  * against an older Guava version is remapped past this version.
  */
 public interface GuavaVersionModule {
-    default void registerMappings(MappingBuilder builder) {
+    default void registerMappings(MappingBuilder builder, GuavaVersion fromVersion, GuavaVersion toVersion) {
     }
 
     default void registerVisitors(VisitorInfos visitorInfos, GuavaVersion fromVersion, GuavaVersion toVersion) {

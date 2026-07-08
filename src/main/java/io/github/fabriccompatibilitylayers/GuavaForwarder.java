@@ -18,7 +18,9 @@ public class GuavaForwarder {
     );
 
     public static void registerAdditionalMappings(MappingBuilder builder, String fromVersion, String toVersion) {
-        forEachModuleInRange(fromVersion, toVersion, module -> module.registerMappings(builder));
+        GuavaVersion from = GuavaVersion.parse(fromVersion);
+        GuavaVersion to = GuavaVersion.parse(toVersion);
+        forEachModuleInRange(fromVersion, toVersion, module -> module.registerMappings(builder, from, to));
     }
 
     public static void registerVisitors(VisitorInfos visitorInfos, String fromVersion, String toVersion) {

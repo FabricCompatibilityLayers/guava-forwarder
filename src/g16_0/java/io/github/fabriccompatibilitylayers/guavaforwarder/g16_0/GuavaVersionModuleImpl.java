@@ -7,7 +7,7 @@ import io.github.fabriccompatibilitylayers.modremappingapi.api.v2.VisitorInfos;
 
 public class GuavaVersionModuleImpl implements GuavaVersionModule {
     @Override
-    public void registerMappings(MappingBuilder builder) {
+    public void registerMappings(MappingBuilder builder, GuavaVersion fromVersion, GuavaVersion toVersion) {
         builder.addMapping("com/google/common/hash/HashFunction")
                 .method("hashString", "hashUnencodedChars", "(Ljava/lang/CharSequence;)Lcom/google/common/hash/HashCode;");
         builder.addMapping("com/google/common/hash/Hasher")
