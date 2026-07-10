@@ -1,5 +1,6 @@
 package io.github.fabriccompatibilitylayers.guavaforwarder;
 
+import io.github.fabriccompatibilitylayers.modremappingapi.api.v2.MappingBuilder;
 import io.github.fabriccompatibilitylayers.modremappingapi.api.v2.VisitorInfos;
 
 import java.lang.reflect.Method;
@@ -48,6 +49,26 @@ public final class GuavaStubRegistrar {
                         )
                 );
             }
+        }
+    }
+
+    /**
+     * Registers a {@link MappingBuilder#addMapping(String, String)} class rename for
+     * every {@link GuavaAdapter}-annotated class in {@code adapters}, redirecting every
+     * reference to the original type - not just one member's call sites - onto the
+     * adapter, skipping any whose target was introduced later than {@code fromVersion}.
+     */
+    public static void registerAdapters(MappingBuilder mappingBuilder, GuavaVersion fromVersion, Class<?>... adapters) {
+        for (Class<?> adapterHolder : adapters) {
+            GuavaAdapter adapter = adapterHolder.getAnnotation(GuavaAdapter.class);
+            if (adapter == null) {
+                throw new IllegalStateException(adapterHolder.getName() + " is missing @GuavaAdapter naming the class it replaces");
+            }
+            if (!adapter.introducedIn().isEmpty() && GuavaVersion.parse(adapter.introducedIn()).isNewerThan(fromVersion)) {
+                continue;
+            }
+
+            mappingBuilder.addMapping(adapter.value(), adapterHolder.getName().replace('.', '/'));
         }
     }
 }

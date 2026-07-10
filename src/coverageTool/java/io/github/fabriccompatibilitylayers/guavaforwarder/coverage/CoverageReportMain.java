@@ -220,30 +220,32 @@ public final class CoverageReportMain {
             ApiSnapshot toApi,
             Map<String, String> classRenameTarget
     ) {
+        // A class rename - including a @GuavaAdapter's, since it's registered as a plain
+        // MappingBuilder rename too - doesn't just cover call sites on the renamed class
+        // itself; any OTHER member whose descriptor mentions that class (most commonly a
+        // fluent-builder method returning "this", or here a stub method returning/taking
+        // the adapter type in place of the original it replaces) gets that reference
+        // rewritten too by the real remapper. So every comparison below needs the
+        // rewritten descriptor - a redirect/rename registered straight off a stub or
+        // hand-written visitor call naturally names the *replacement* type, since that's
+        // the only type available to reference by the time that code is written.
+        String rewrittenDescriptor = rewriteDescriptor(member.descriptor(), classRenameTarget);
+
         String renamedTo = classRenameTarget.get(member.owner());
-        if (renamedTo != null) {
-            // A class rename doesn't just cover instance-method call sites on the
-            // renamed class itself - any OTHER member whose descriptor mentions that
-            // class (most commonly its own methods returning "this", e.g. a fluent
-            // builder) gets that reference rewritten too by the real remapper, so the
-            // descriptor has to be rewritten the same way before comparing against the
-            // replacement class's real API.
-            String rewrittenDescriptor = rewriteDescriptor(member.descriptor(), classRenameTarget);
-            if (toApi.resolvesMember(renamedTo, member.name(), rewrittenDescriptor)) {
-                return true;
-            }
+        if (renamedTo != null && toApi.resolvesMember(renamedTo, member.name(), rewrittenDescriptor, member.isPublic())) {
+            return true;
         }
         for (MethodRenameInfo rename : registrations.methodRenames()) {
             if (rename.owner().equals(member.owner())
                     && rename.from().equals(member.name())
-                    && rename.descriptor().equals(member.descriptor())) {
+                    && rename.descriptor().equals(rewrittenDescriptor)) {
                 return true;
             }
         }
         for (MethodRedirectInfo redirect : registrations.methodRedirects()) {
             if (redirect.targetClass().equals(member.owner())
                     && redirect.targetMethod().equals(member.name())
-                    && redirect.targetDesc().equals(member.descriptor())) {
+                    && redirect.targetDesc().equals(rewrittenDescriptor)) {
                 return true;
             }
         }

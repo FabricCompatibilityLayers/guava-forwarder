@@ -14,7 +14,7 @@ public class GuavaVersionModuleImpl implements GuavaVersionModule {
 
     @Override
     public void registerMappings(MappingBuilder builder, GuavaVersion fromVersion, GuavaVersion toVersion) {
-        builder.addMapping("com/google/common/io/LimitInputStream", "io/github/fabriccompatibilitylayers/guavaforwarder/g15_0/stubs/I_LimitInputStream");
+        GuavaStubRegistrar.registerAdapters(builder, fromVersion, I_LimitInputStream.class);
 
         MappingBuilder.ClassMapping fiMapping = builder.addMapping("com/google/common/collect/FluentIterable")
                 .method("toImmutableList", "toList", "()Lcom/google/common/collect/ImmutableList;")
@@ -29,6 +29,20 @@ public class GuavaVersionModuleImpl implements GuavaVersionModule {
                 .method("expectedFalsePositiveProbability", "expectedFpp", "()D");
         builder.addMapping("com/google/common/net/InternetDomainName")
                 .method("isValidLenient", "isValid", "(Ljava/lang/String;)Z");
+        builder.addMapping("com/google/common/primitives/UnsignedInteger")
+                .method("add", "plus", "(Lcom/google/common/primitives/UnsignedInteger;)Lcom/google/common/primitives/UnsignedInteger;")
+                .method("asUnsigned", "fromIntBits", "(I)Lcom/google/common/primitives/UnsignedInteger;")
+                .method("divide", "dividedBy", "(Lcom/google/common/primitives/UnsignedInteger;)Lcom/google/common/primitives/UnsignedInteger;")
+                .method("multiply", "times", "(Lcom/google/common/primitives/UnsignedInteger;)Lcom/google/common/primitives/UnsignedInteger;")
+                .method("remainder", "mod", "(Lcom/google/common/primitives/UnsignedInteger;)Lcom/google/common/primitives/UnsignedInteger;")
+                .method("subtract", "minus", "(Lcom/google/common/primitives/UnsignedInteger;)Lcom/google/common/primitives/UnsignedInteger;");
+        builder.addMapping("com/google/common/primitives/UnsignedLong")
+                .method("add", "plus", "(Lcom/google/common/primitives/UnsignedLong;)Lcom/google/common/primitives/UnsignedLong;")
+                .method("asUnsigned", "fromLongBits", "(J)Lcom/google/common/primitives/UnsignedLong;")
+                .method("divide", "dividedBy", "(Lcom/google/common/primitives/UnsignedLong;)Lcom/google/common/primitives/UnsignedLong;")
+                .method("multiply", "times", "(Lcom/google/common/primitives/UnsignedLong;)Lcom/google/common/primitives/UnsignedLong;")
+                .method("remainder", "mod", "(Lcom/google/common/primitives/UnsignedLong;)Lcom/google/common/primitives/UnsignedLong;")
+                .method("subtract", "minus", "(Lcom/google/common/primitives/UnsignedLong;)Lcom/google/common/primitives/UnsignedLong;");
     }
 
     @Override

@@ -4,9 +4,12 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,16 +31,21 @@ import java.util.jar.JarFile;
  * redirect those.
  */
 final class ApiSnapshot {
-    record Member(String owner, String name, String descriptor) {
+    /** {@code isPublic} is the original member's own visibility - {@code true} for {@code public},
+     * {@code false} for {@code protected} - since a member demoted from public to protected needs
+     * a subclass/same-package relationship to still be callable, exactly like a whole class demoted
+     * from public to package-private (see {@link #resolvesMember}). */
+    record Member(String owner, String name, String descriptor, boolean isPublic) {
     }
 
-    /** A class's resolvable (public/protected, non-constructor) members plus its hierarchy links. */
-    private record ClassInfo(String superName, List<String> interfaces, Set<String> resolvableMembers) {
+    /** A class's resolvable (public/protected, non-constructor) members - value is each member's
+     * own {@code isPublic} flag, see {@link Member} - plus its hierarchy links. */
+    private record ClassInfo(String superName, List<String> interfaces, Map<String, Boolean> resolvableMembers, boolean isPublic) {
     }
 
     /** The subset of each public class's {@code resolvableMembers} that excludes compiler-generated
      * bridge/synthetic methods - i.e. the hand-written surface a version bump is checked against. */
-    private final Map<String, Set<String>> methodsByClass = new HashMap<>();
+    private final Map<String, Map<String, Boolean>> methodsByClass = new HashMap<>();
 
     /** Every class in the jar (public or not), so hierarchy walks can pass through package-private
      * link classes too - keyed the same as {@link #methodsByClass}. */
@@ -79,7 +87,7 @@ final class ApiSnapshot {
     }
 
     boolean hasAnyMembers(String owner) {
-        Set<String> members = methodsByClass.get(owner);
+        Map<String, Boolean> members = methodsByClass.get(owner);
         return members != null && !members.isEmpty();
     }
 
@@ -93,23 +101,83 @@ final class ApiSnapshot {
      * flags when resolving a call site - a covariant-return override's auto-generated bridge is a
      * perfectly valid target for an old call site compiled against the pre-covariant descriptor.
      *
-     * <p>A class outside this jar (e.g. a JDK supertype) can't be inspected, so the walk simply
-     * stops there rather than guessing.
+     * <p>A class outside this jar - most commonly a JDK supertype, since Guava classes routinely
+     * extend/implement {@code java.util}/{@code java.lang} types (e.g. {@code ForwardingObject}
+     * extends {@code Object}, many collection wrappers implement {@code java.util.Collection}) -
+     * falls back to the real JDK class via reflection ({@link #resolvesMemberOnJdkClass}) rather
+     * than the walk simply stopping dead at the jar boundary, since a member inherited from a JDK
+     * supertype resolves at a real call site just as validly as one declared in the jar itself.
+     *
+     * <p>{@code owner} itself must still be public: an old call site's constant pool entry names
+     * {@code owner} directly, so per JVMS 5.4.4, resolving that symbolic reference at all requires
+     * {@code owner} to be accessible, before the method-resolution walk up its hierarchy even
+     * begins - a class demoted from public to package-private is exactly as breaking as one removed
+     * outright, even though it (and its still-public-looking methods) remain in {@link #classInfo}
+     * so hierarchy walks reached via a *still-public* subtype can keep passing through it. Once
+     * past this check, intermediate supertypes/interfaces found while walking don't need to be
+     * public themselves - only the resolved member's own accessibility matters at that point.
+     *
+     * <p>{@code requirePublic} applies that same JVMS 5.4.4 access check to whichever member the
+     * walk resolves to - {@code true} if the old call site's own member was {@code public} (see
+     * {@link Member#isPublic}), meaning the replacement must be {@code public} too, since an
+     * unrelated external caller can't invoke a member demoted to {@code protected} even though
+     * method *resolution* (5.4.3.3, which doesn't care about access flags) still finds it. Once a
+     * same-name-and-descriptor member is found anywhere in the walk, that resolution is final - the
+     * JVM doesn't keep searching further up for a more-accessible one if the one it found fails the
+     * access check, so this stops right there too instead of continuing past it.
      */
-    boolean resolvesMember(String owner, String name, String descriptor) {
-        return resolvesMember(owner, name, descriptor, new HashSet<>());
+    boolean resolvesMember(String owner, String name, String descriptor, boolean requirePublic) {
+        ClassInfo ownerInfo = classInfo.get(owner);
+        if (ownerInfo != null && !ownerInfo.isPublic()) return false;
+        return resolvesMember(owner, name, descriptor, requirePublic, new HashSet<>());
     }
 
-    private boolean resolvesMember(String owner, String name, String descriptor, Set<String> visited) {
+    private boolean resolvesMember(String owner, String name, String descriptor, boolean requirePublic, Set<String> visited) {
         if (owner == null || !visited.add(owner)) return false;
         ClassInfo info = classInfo.get(owner);
-        if (info == null) return false;
-        if (info.resolvableMembers().contains(key(name, descriptor))) return true;
-        if (resolvesMember(info.superName(), name, descriptor, visited)) return true;
+        if (info == null) return resolvesMemberOnJdkClass(owner, name, descriptor, requirePublic, visited);
+        Boolean foundIsPublic = info.resolvableMembers().get(key(name, descriptor));
+        if (foundIsPublic != null) return !requirePublic || foundIsPublic;
+        if (resolvesMember(info.superName(), name, descriptor, requirePublic, visited)) return true;
         for (String iface : info.interfaces()) {
-            if (resolvesMember(iface, name, descriptor, visited)) return true;
+            if (resolvesMember(iface, name, descriptor, requirePublic, visited)) return true;
         }
         return false;
+    }
+
+    /**
+     * Same resolution as {@link #resolvesMember}, but for a class not present in this jar,
+     * loaded from whatever JDK the coverage tool itself runs on. {@code owner} has already been
+     * marked visited by the caller, so this only needs to walk further up from it.
+     */
+    private boolean resolvesMemberOnJdkClass(String owner, String name, String descriptor, boolean requirePublic, Set<String> visited) {
+        Class<?> jdkClass = loadJdkClass(owner);
+        if (jdkClass == null) return false;
+        for (Method method : jdkClass.getDeclaredMethods()) {
+            int modifiers = method.getModifiers();
+            if (!(Modifier.isPublic(modifiers) || Modifier.isProtected(modifiers))) continue;
+            if (method.getName().equals(name) && Type.getMethodDescriptor(method).equals(descriptor)) {
+                return !requirePublic || Modifier.isPublic(modifiers);
+            }
+        }
+        Class<?> superclass = jdkClass.getSuperclass();
+        if (superclass != null && resolvesMember(internalName(superclass), name, descriptor, requirePublic, visited)) return true;
+        for (Class<?> iface : jdkClass.getInterfaces()) {
+            if (resolvesMember(internalName(iface), name, descriptor, requirePublic, visited)) return true;
+        }
+        return false;
+    }
+
+    private static Class<?> loadJdkClass(String internalName) {
+        try {
+            return Class.forName(internalName.replace('/', '.'), false, ApiSnapshot.class.getClassLoader());
+        } catch (ClassNotFoundException | LinkageError e) {
+            return null;
+        }
+    }
+
+    private static String internalName(Class<?> clazz) {
+        return clazz.getName().replace('.', '/');
     }
 
     /**
@@ -119,14 +187,16 @@ final class ApiSnapshot {
      */
     List<Member> membersMissingFrom(ApiSnapshot other) {
         List<Member> missing = new ArrayList<>();
-        for (Map.Entry<String, Set<String>> entry : methodsByClass.entrySet()) {
+        for (Map.Entry<String, Map<String, Boolean>> entry : methodsByClass.entrySet()) {
             String owner = entry.getKey();
-            for (String key : entry.getValue()) {
+            for (Map.Entry<String, Boolean> member : entry.getValue().entrySet()) {
+                String key = member.getKey();
+                boolean isPublic = member.getValue();
                 int split = key.indexOf(' ');
                 String name = key.substring(0, split);
                 String descriptor = key.substring(split + 1);
-                if (!other.resolvesMember(owner, name, descriptor)) {
-                    missing.add(new Member(owner, name, descriptor));
+                if (!other.resolvesMember(owner, name, descriptor, isPublic)) {
+                    missing.add(new Member(owner, name, descriptor, isPublic));
                 }
             }
         }
@@ -150,25 +220,27 @@ final class ApiSnapshot {
         public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
             owner = name;
             publicClass = (access & Opcodes.ACC_PUBLIC) != 0;
-            if (publicClass) methodsByClass.computeIfAbsent(owner, k -> new HashSet<>());
+            if (publicClass) methodsByClass.computeIfAbsent(owner, k -> new HashMap<>());
             classInfo.put(owner, new ClassInfo(
                     superName,
                     interfaces == null ? List.of() : List.of(interfaces),
-                    new HashSet<>()
+                    new HashMap<>(),
+                    publicClass
             ));
         }
 
         @Override
         public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-            boolean visibleMember = (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PROTECTED)) != 0;
+            boolean isPublicMember = (access & Opcodes.ACC_PUBLIC) != 0;
+            boolean visibleMember = isPublicMember || (access & Opcodes.ACC_PROTECTED) != 0;
             boolean compilerGenerated = (access & (Opcodes.ACC_SYNTHETIC | Opcodes.ACC_BRIDGE)) != 0;
             boolean constructorLike = name.equals("<init>") || name.equals("<clinit>");
             if (constructorLike) return null;
             if (visibleMember) {
-                classInfo.get(owner).resolvableMembers().add(key(name, descriptor));
+                classInfo.get(owner).resolvableMembers().put(key(name, descriptor), isPublicMember);
             }
             if (publicClass && visibleMember && !compilerGenerated) {
-                methodsByClass.get(owner).add(key(name, descriptor));
+                methodsByClass.get(owner).put(key(name, descriptor), isPublicMember);
             }
             return null;
         }

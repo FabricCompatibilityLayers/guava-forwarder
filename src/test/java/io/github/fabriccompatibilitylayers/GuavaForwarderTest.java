@@ -317,4 +317,170 @@ class GuavaForwarderTest {
         assertEquals("io/github/fabriccompatibilitylayers/guavaforwarder/g30_0_jre/stubs/U_C_ServiceManager", redirect.replacementOwner());
         assertTrue(redirect.replacementStatic());
     }
+
+    @Test
+    void registersConstraintClassRenameAndConstraintsStubs() {
+        FakeMappingBuilder mappingBuilder = new FakeMappingBuilder();
+        GuavaForwarder.registerAdditionalMappings(mappingBuilder, "12.0.1", "21.0");
+
+        // g16_0's C_Constraint is a @GuavaAdapter (full drop-in replacement), not a
+        // @GuavaStub - Constraint itself was demoted from public in later Guava, so
+        // there's no remaining member on the original type to redirect individual call
+        // sites to; every reference to the type has to be renamed instead.
+        assertTrue(mappingBuilder.classRenames.contains(
+                new FakeMappingBuilder.ClassRename(
+                        "com/google/common/collect/Constraint",
+                        "io/github/fabriccompatibilitylayers/guavaforwarder/g16_0/stubs/C_Constraint"
+                )
+        ));
+
+        FakeVisitorInfos visitorInfos = new FakeVisitorInfos();
+        GuavaForwarder.registerVisitors(visitorInfos, "12.0.1", "21.0");
+
+        List<FakeVisitorInfos.MethodRedirect> constraintsRedirects = visitorInfos.methodRedirects.stream()
+                .filter(r -> r.targetClass().equals("com/google/common/collect/Constraints"))
+                .toList();
+
+        // Every C_Constraints redirect's descriptor refers to C_Constraint (not the
+        // original Constraint) - the class rename above runs first, so by the time this
+        // redirect's matcher sees a call site, any Constraint occurrence in its
+        // descriptor has already been rewritten to C_Constraint.
+        String constraintDesc = "Lio/github/fabriccompatibilitylayers/guavaforwarder/g16_0/stubs/C_Constraint;";
+        assertTrue(constraintsRedirects.stream().allMatch(r ->
+                r.replacementOwner().equals("io/github/fabriccompatibilitylayers/guavaforwarder/g16_0/stubs/C_Constraints")
+                        && r.targetDesc().contains(constraintDesc)
+        ));
+
+        assertTrue(constraintsRedirects.stream().anyMatch(r ->
+                r.targetMethod().equals("notNull") && r.targetDesc().equals("()" + constraintDesc)
+        ));
+        assertTrue(constraintsRedirects.stream().anyMatch(r ->
+                r.targetMethod().equals("constrainedCollection")
+                        && r.targetDesc().equals("(Ljava/util/Collection;" + constraintDesc + ")Ljava/util/Collection;")
+        ));
+        assertTrue(constraintsRedirects.stream().anyMatch(r ->
+                r.targetMethod().equals("constrainedSet")
+                        && r.targetDesc().equals("(Ljava/util/Set;" + constraintDesc + ")Ljava/util/Set;")
+        ));
+        assertTrue(constraintsRedirects.stream().anyMatch(r ->
+                r.targetMethod().equals("constrainedSortedSet")
+                        && r.targetDesc().equals("(Ljava/util/SortedSet;" + constraintDesc + ")Ljava/util/SortedSet;")
+        ));
+        assertTrue(constraintsRedirects.stream().anyMatch(r ->
+                r.targetMethod().equals("constrainedList")
+                        && r.targetDesc().equals("(Ljava/util/List;" + constraintDesc + ")Ljava/util/List;")
+        ));
+        assertTrue(constraintsRedirects.stream().anyMatch(r ->
+                r.targetMethod().equals("constrainedMultiset")
+                        && r.targetDesc().equals("(Lcom/google/common/collect/Multiset;" + constraintDesc + ")Lcom/google/common/collect/Multiset;")
+        ));
+    }
+
+    @Test
+    void registersStopwatchElapsedTimeAndElapsedMillisStubs() {
+        FakeVisitorInfos visitorInfos = new FakeVisitorInfos();
+
+        GuavaForwarder.registerVisitors(visitorInfos, "12.0.1", "21.0");
+
+        List<FakeVisitorInfos.MethodRedirect> stopwatchRedirects = visitorInfos.methodRedirects.stream()
+                .filter(r -> r.targetClass().equals("com/google/common/base/Stopwatch")
+                        && r.replacementOwner().equals("io/github/fabriccompatibilitylayers/guavaforwarder/g16_0/stubs/B_Stopwatch"))
+                .toList();
+
+        FakeVisitorInfos.MethodRedirect elapsedTime = stopwatchRedirects.stream()
+                .filter(r -> r.targetMethod().equals("elapsedTime"))
+                .findFirst().orElseThrow();
+        assertEquals("(Ljava/util/concurrent/TimeUnit;)J", elapsedTime.targetDesc());
+        assertEquals("(Lcom/google/common/base/Stopwatch;Ljava/util/concurrent/TimeUnit;)J", elapsedTime.replacementDesc());
+
+        FakeVisitorInfos.MethodRedirect elapsedMillis = stopwatchRedirects.stream()
+                .filter(r -> r.targetMethod().equals("elapsedMillis"))
+                .findFirst().orElseThrow();
+        assertEquals("()J", elapsedMillis.targetDesc());
+        assertEquals("(Lcom/google/common/base/Stopwatch;)J", elapsedMillis.replacementDesc());
+    }
+
+    @Test
+    void registersRangeAsSetStub() {
+        FakeVisitorInfos visitorInfos = new FakeVisitorInfos();
+
+        GuavaForwarder.registerVisitors(visitorInfos, "12.0.1", "21.0");
+
+        FakeVisitorInfos.MethodRedirect redirect = visitorInfos.methodRedirects.stream()
+                .filter(r -> r.targetClass().equals("com/google/common/collect/Range") && r.targetMethod().equals("asSet"))
+                .findFirst().orElseThrow();
+        assertEquals("(Lcom/google/common/collect/DiscreteDomain;)Lcom/google/common/collect/ContiguousSet;", redirect.targetDesc());
+        assertEquals("io/github/fabriccompatibilitylayers/guavaforwarder/g16_0/stubs/C_Range", redirect.replacementOwner());
+        assertEquals(
+                "(Lcom/google/common/collect/Range;Lcom/google/common/collect/DiscreteDomain;)Lcom/google/common/collect/ContiguousSet;",
+                redirect.replacementDesc()
+        );
+    }
+
+    @Test
+    void registersCloseablesCloseQuietlyStub() {
+        FakeVisitorInfos visitorInfos = new FakeVisitorInfos();
+
+        GuavaForwarder.registerVisitors(visitorInfos, "12.0.1", "21.0");
+
+        FakeVisitorInfos.MethodRedirect redirect = visitorInfos.methodRedirects.stream()
+                .filter(r -> r.targetClass().equals("com/google/common/io/Closeables") && r.targetMethod().equals("closeQuietly"))
+                .findFirst().orElseThrow();
+        assertEquals("(Ljava/io/Closeable;)V", redirect.targetDesc());
+        assertEquals("io/github/fabriccompatibilitylayers/guavaforwarder/g16_0/stubs/I_Closeables", redirect.replacementOwner());
+        assertTrue(redirect.replacementStatic());
+    }
+
+    @Test
+    void registersByteStreamsAndCharStreamsAsSourceStubsOnlyWhenFromVersionIsAtLeast14_0() {
+        // Both I_ByteStreams#asByteSource and I_CharStreams#asCharSource are annotated
+        // introducedIn = "14.0" - ByteSource/CharSource didn't exist before then, so a
+        // mod compiled against an older Guava physically cannot call them.
+        FakeVisitorInfos belowIntroduction = new FakeVisitorInfos();
+        GuavaForwarder.registerVisitors(belowIntroduction, "12.0.1", "21.0");
+        assertTrue(belowIntroduction.methodRedirects.stream().noneMatch(r ->
+                r.targetClass().equals("com/google/common/io/ByteStreams") && r.targetMethod().equals("asByteSource")
+        ));
+        assertTrue(belowIntroduction.methodRedirects.stream().noneMatch(r ->
+                r.targetClass().equals("com/google/common/io/CharStreams") && r.targetMethod().equals("asCharSource")
+        ));
+
+        FakeVisitorInfos atIntroduction = new FakeVisitorInfos();
+        GuavaForwarder.registerVisitors(atIntroduction, "14.0", "21.0");
+
+        FakeVisitorInfos.MethodRedirect byteStreams = atIntroduction.methodRedirects.stream()
+                .filter(r -> r.targetClass().equals("com/google/common/io/ByteStreams") && r.targetMethod().equals("asByteSource"))
+                .findFirst().orElseThrow();
+        assertEquals("([B)Lcom/google/common/io/ByteSource;", byteStreams.targetDesc());
+        assertEquals("io/github/fabriccompatibilitylayers/guavaforwarder/g16_0/stubs/I_ByteStreams", byteStreams.replacementOwner());
+
+        FakeVisitorInfos.MethodRedirect charStreams = atIntroduction.methodRedirects.stream()
+                .filter(r -> r.targetClass().equals("com/google/common/io/CharStreams") && r.targetMethod().equals("asCharSource"))
+                .findFirst().orElseThrow();
+        assertEquals("(Ljava/lang/String;)Lcom/google/common/io/CharSource;", charStreams.targetDesc());
+        assertEquals("io/github/fabriccompatibilitylayers/guavaforwarder/g16_0/stubs/I_CharStreams", charStreams.replacementOwner());
+    }
+
+    @Test
+    void skipsBaseEncodingAndFileBackedOutputStreamStubsOncePastInputSupplierRemovalIn20() {
+        // I_BaseEncoding#decodingStream/encodingStream and
+        // I_FileBackedOutputStream#getSupplier all take a leading InputSupplier or
+        // OutputSupplier parameter (to match the original members' descriptors) - both
+        // types were removed in Guava 20.0, so once the actual runtime Guava is that
+        // new, no mod bytecode could hold an instance of either to call these with
+        // anyway, and reflecting over the stub classes would fail trying to resolve the
+        // removed types. Regression coverage for g16_0 registering these unconditionally
+        // instead of gating them the way g13_0/g15_0 gate their own InputSupplier-taking
+        // stubs.
+        FakeVisitorInfos visitorInfos = new FakeVisitorInfos();
+
+        GuavaForwarder.registerVisitors(visitorInfos, "12.0.1", "21.0");
+
+        assertTrue(visitorInfos.methodRedirects.stream().noneMatch(r ->
+                r.targetClass().equals("com/google/common/io/BaseEncoding")
+        ));
+        assertTrue(visitorInfos.methodRedirects.stream().noneMatch(r ->
+                r.targetClass().equals("com/google/common/io/FileBackedOutputStream")
+        ));
+    }
 }

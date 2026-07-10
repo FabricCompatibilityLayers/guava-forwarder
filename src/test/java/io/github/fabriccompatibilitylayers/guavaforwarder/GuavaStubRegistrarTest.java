@@ -56,4 +56,33 @@ class GuavaStubRegistrarTest {
         // Replacement keeps the full stub signature, receiver included.
         assertEquals("(L" + StubHolder.class.getName().replace('.', '/') + ";Ljava/lang/String;)I", redirect.replacementDesc());
     }
+
+    @GuavaAdapter("com/example/OldInterface")
+    static class AdapterHolder {
+    }
+
+    @GuavaAdapter(value = "com/example/OldLateInterface", introducedIn = "99.0")
+    static class LateAdapterHolder {
+    }
+
+    @Test
+    void registersClassRenameForAdapter() {
+        FakeMappingBuilder mappingBuilder = new FakeMappingBuilder();
+
+        GuavaStubRegistrar.registerAdapters(mappingBuilder, GuavaVersion.parse("17.0"), AdapterHolder.class);
+
+        assertEquals(1, mappingBuilder.classRenames.size());
+        FakeMappingBuilder.ClassRename rename = mappingBuilder.classRenames.get(0);
+        assertEquals("com/example/OldInterface", rename.from());
+        assertEquals(AdapterHolder.class.getName().replace('.', '/'), rename.to());
+    }
+
+    @Test
+    void skipsAdaptersIntroducedAfterFromVersion() {
+        FakeMappingBuilder mappingBuilder = new FakeMappingBuilder();
+
+        GuavaStubRegistrar.registerAdapters(mappingBuilder, GuavaVersion.parse("17.0"), LateAdapterHolder.class);
+
+        assertEquals(0, mappingBuilder.classRenames.size());
+    }
 }
