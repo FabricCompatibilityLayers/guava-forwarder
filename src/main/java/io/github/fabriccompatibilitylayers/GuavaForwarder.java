@@ -40,7 +40,14 @@ public class GuavaForwarder {
             List.of("28.0-jre", "28.1-jre", "28.2-jre"),
             List.of("29.0-jre"),
             List.of("30.0-jre", "30.1-jre", "30.1.1-jre"),
-            List.of("31.0-jre", "31.0.1-jre", "31.1-jre", "32.0.0-jre", "32.0.1-jre")
+            List.of(
+                    "31.0-jre", "31.0.1-jre", "31.1-jre", "32.0.0-jre", "32.0.1-jre",
+                    "32.1.0-jre", "32.1.1-jre", "32.1.2-jre", "32.1.3-jre",
+                    "33.0.0-jre", "33.1.0-jre", "33.2.0-jre", "33.2.1-jre", "33.3.0-jre", "33.3.1-jre",
+                    "33.4.0-jre", "33.4.1-jre", "33.4.2-jre", "33.4.3-jre", "33.4.4-jre",
+                    "33.4.5-jre", "33.4.6-jre", "33.4.7-jre", "33.4.8-jre",
+                    "33.5.0-jre", "33.6.0-jre"
+            )
     );
 
     public static void registerAdditionalMappings(MappingBuilder builder, String fromVersion, String toVersion) {

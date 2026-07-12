@@ -27,7 +27,7 @@ dependencies {
 
     // At real runtime Guava is provided by the host mod/game; simulate that here so
     // tests can reflectively load version modules whose stubs reference real Guava types.
-    testRuntimeOnly("com.google.guava:guava:32.0.1-jre")
+    testRuntimeOnly("com.google.guava:guava:33.6.0-jre")
 }
 
 // Every Guava release we support, oldest first, grouped into consecutive runs the
@@ -60,7 +60,14 @@ val guavaVersionGroups = listOf(
     listOf("28.0-jre", "28.1-jre", "28.2-jre"),
     listOf("29.0-jre"),
     listOf("30.0-jre", "30.1-jre", "30.1.1-jre"),
-    listOf("31.0-jre", "31.0.1-jre", "31.1-jre", "32.0.0-jre", "32.0.1-jre")
+    listOf(
+        "31.0-jre", "31.0.1-jre", "31.1-jre", "32.0.0-jre", "32.0.1-jre",
+        "32.1.0-jre", "32.1.1-jre", "32.1.2-jre", "32.1.3-jre",
+        "33.0.0-jre", "33.1.0-jre", "33.2.0-jre", "33.2.1-jre", "33.3.0-jre", "33.3.1-jre",
+        "33.4.0-jre", "33.4.1-jre", "33.4.2-jre", "33.4.3-jre", "33.4.4-jre",
+        "33.4.5-jre", "33.4.6-jre", "33.4.7-jre", "33.4.8-jre",
+        "33.5.0-jre", "33.6.0-jre"
+    )
 )
 val guavaVersions = guavaVersionGroups.flatten()
 
@@ -81,7 +88,7 @@ val guavaModules: Configuration = configurations.create("guavaModules")
 val downgradeJarClasspath: Configuration = configurations.create("downgradeJarClasspath")
 
 dependencies {
-    add("downgradeJarClasspath", "com.google.guava:guava:32.0.1-jre")
+    add("downgradeJarClasspath", "com.google.guava:guava:33.6.0-jre")
 }
 
 guavaVersionGroups.forEach { group ->

@@ -70,7 +70,7 @@ class GuavaForwarderTest {
         // so the g13_0 stub redirect should not be registered. toVersion is kept at/above
         // 21.0 (rather than e.g. 17.0) so the g14_0/g15_0 GenericMapMaker-dependent stubs
         // are skipped too - GenericMapMaker isn't on the test runtime's real Guava jar
-        // (32.0.1-jre) at all, so reflecting over those stubs would throw regardless of
+        // (33.6.0-jre) at all, so reflecting over those stubs would throw regardless of
         // this test's real focus.
         GuavaForwarder.registerVisitors(visitorInfos, "14.0", "21.0");
 
